@@ -102,7 +102,7 @@ jobs:
       # ── 8. Build the APK ──────────────────────────────────────────────────────
       - name: Build APK with Buildozer
         run: |
-          buildozer -v android debug 2>&1
+          yes | buildozer -v android debug 2>&1
 
       # ── 9. Find and display APK info ──────────────────────────────────────────
       - name: Show build result

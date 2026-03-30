@@ -29,6 +29,7 @@ android.minapi = 24
 android.ndk = 25b
 android.sdk = 33
 android.ndk_api = 24
+android.accept_sdk_license = True
 
 # Use the latest stable p4a
 android.branch = master
