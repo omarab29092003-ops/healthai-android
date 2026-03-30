@@ -1,0 +1,128 @@
+name: Build HealthAI APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:   # allows manual trigger from GitHub UI
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      # ── 1. Checkout code ──────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python 3.10 ─────────────────────────────────────────────────
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # ── 3. Cache Buildozer global directory ───────────────────────────────────
+      - name: Cache .buildozer global
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      # ── 4. Install system dependencies ────────────────────────────────────────
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            python3-pip \
+            build-essential \
+            git \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            libbz2-dev \
+            libsqlite3-dev \
+            ccache \
+            lld
+          java -version
+
+      # ── 5. Install Python build tools ─────────────────────────────────────────
+      - name: Install Buildozer and Cython
+        run: |
+          pip install --upgrade pip
+          pip install cython==0.29.33
+          pip install buildozer
+          pip install python-for-android
+          buildozer --version
+
+      # ── 6. Fix buildozer.spec for CI ──────────────────────────────────────────
+      - name: Patch buildozer.spec
+        run: |
+          # Remove android.branch line (use p4a default stable)
+          sed -i '/^android\.branch/d' buildozer.spec
+          # Show final spec for debugging
+          echo "=== buildozer.spec ==="
+          cat buildozer.spec
+
+      # ── 7. Verify all required files are present ──────────────────────────────
+      - name: Verify project files
+        run: |
+          python3 - <<'EOF'
+          import os, sys
+          required = [
+            'main.py', 'buildozer.spec',
+            'screens/onboarding.py', 'screens/home.py',
+            'screens/disease_list.py', 'screens/symptom_form.py',
+            'screens/results.py', 'models/predictor.py',
+            'models/diabetes_model.pkl', 'models/heart_model.pkl',
+            'utils/theme.py', 'data/form_schemas.py',
+          ]
+          all_ok = True
+          for f in required:
+            exists = os.path.exists(f)
+            print(f"{'✅' if exists else '❌ MISSING'}  {f}")
+            if not exists: all_ok = False
+          if not all_ok:
+            sys.exit(1)
+          print("\nAll files present — starting build!")
+          EOF
+
+      # ── 8. Build the APK ──────────────────────────────────────────────────────
+      - name: Build APK with Buildozer
+        run: |
+          buildozer -v android debug 2>&1
+
+      # ── 9. Find and display APK info ──────────────────────────────────────────
+      - name: Show build result
+        run: |
+          APK=$(find bin/ -name "*.apk" 2>/dev/null | head -1)
+          if [ -n "$APK" ]; then
+            echo "✅ APK built successfully!"
+            echo "   File: $APK"
+            echo "   Size: $(du -h "$APK" | cut -f1)"
+            echo "APK_PATH=$APK" >> $GITHUB_ENV
+          else
+            echo "❌ APK not found — build failed"
+            exit 1
+          fi
+
+      # ── 10. Upload APK as downloadable artifact ───────────────────────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HealthAI-APK
+          path: bin/*.apk
+          retention-days: 30
+          if-no-files-found: error
