@@ -16,7 +16,7 @@ version = 1.0.0
 # ── Python / Kivy Requirements ────────────────────────────────────────────────
 # NOTE: on Android, use the p4a-friendly names.
 # scikit-learn is available via the kivy-garden or as a p4a recipe.
-requirements = python3,kivy==2.2.1,numpy,scikit-learn,joblib
+requirements = python3,kivy==2.2.1,numpy
 
 # ── Orientation & UI ─────────────────────────────────────────────────────────
 orientation = portrait
